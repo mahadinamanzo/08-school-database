@@ -2,6 +2,7 @@ SET NAMES utf8mb4;
 
 DROP TRIGGER IF EXISTS trg_result_validate_offering_update;
 DROP TRIGGER IF EXISTS trg_result_validate_offering_insert;
+DROP TRIGGER IF EXISTS trg_enrollment_protect_result_history;
 
 DROP TABLE IF EXISTS `Result`;
 DROP TABLE IF EXISTS `Attendance`;
@@ -190,6 +191,21 @@ BEGIN
     ) THEN
         SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = 'Result enrollment and offering must have the same class and term';
+    END IF;
+END//
+
+CREATE TRIGGER `trg_enrollment_protect_result_history`
+BEFORE UPDATE ON `StudentTermEnrollment`
+FOR EACH ROW
+BEGIN
+    IF (NEW.`ClassID` <> OLD.`ClassID` OR NEW.`TermID` <> OLD.`TermID`)
+       AND EXISTS (
+           SELECT 1
+           FROM `Result` AS r
+           WHERE r.`EnrollmentID` = OLD.`EnrollmentID`
+       ) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Cannot change class or term after results have been recorded';
     END IF;
 END//
 DELIMITER ;
